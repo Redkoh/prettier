@@ -137,7 +137,13 @@ function isIndentationSensitiveNode(node) {
 }
 
 function isLeadingSpaceSensitiveNode(node, options) {
-  const isLeadingSpaceSensitive = _isLeadingSpaceSensitiveNode();
+  const isI18n = node.parent?.attrs && node.parent.attrs.some(a => a.name === "i18n");
+
+  if (isI18n) {
+    return true;
+  }
+
+  const isLeadingSpaceSensitive =  _isLeadingSpaceSensitiveNode();
 
   if (
     isLeadingSpaceSensitive &&
@@ -197,6 +203,12 @@ function isLeadingSpaceSensitiveNode(node, options) {
 function isTrailingSpaceSensitiveNode(node, options) {
   if (isFrontMatterNode(node)) {
     return false;
+  }
+
+  const isI18n = node.parent?.attrs && node.parent.attrs.some(a => a.name === "i18n");
+
+  if (isI18n) {
+    return true;
   }
 
   if (
@@ -501,6 +513,13 @@ function getNodeCssStyleDisplay(node, options) {
     } else {
       return node.name === "svg" ? "inline-block" : "block";
     }
+  }
+
+  const isI18n = node.attrs && node.attrs.some(a => a.name === "i18n");
+  const isI18nParent = node.parent?.attrs && node.parent.attrs.some(a => a.name === "i18n");
+
+  if (isI18n || isI18nParent) {
+    return "inline";
   }
 
   switch (options.htmlWhitespaceSensitivity) {

@@ -11,6 +11,7 @@
 /errors
 /test*.*
 /.vscode
+/dist
 /website/build
 /website/i18n
 /website/static/playground.js

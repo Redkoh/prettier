@@ -282,6 +282,8 @@ function extractWhitespaces(ast /*, options*/) {
     const isWhitespaceSensitive = isWhitespaceSensitiveNode(node);
     const isIndentationSensitive = isIndentationSensitiveNode(node);
 
+    const isI18n = node.attrs && node.attrs.some(a => a.name === "i18n");
+
     if (!isWhitespaceSensitive) {
       for (let i = 0; i < node.children.length; i++) {
         const child = node.children[i];
@@ -318,10 +320,10 @@ function extractWhitespaces(ast /*, options*/) {
             if (prevChild) {
               prevChild.hasTrailingSpaces = true;
             }
-            child.hasLeadingSpaces = true;
+            child.hasLeadingSpaces = prevChild ? true : !isI18n;
           }
           if (trailingWhitespace) {
-            child.hasTrailingSpaces = true;
+            child.hasTrailingSpaces = nextChild ? true : !isI18n;
             if (nextChild) {
               nextChild.hasLeadingSpaces = true;
             }

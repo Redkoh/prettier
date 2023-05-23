@@ -161,10 +161,11 @@ function needsToBorrowParentClosingTagStartMarker(node) {
    *        ^^^
    *     >
    */
+  const i18nContent = node.parent?.attrs && node.parent.attrs.some(a => a.name === "i18n");
   return (
     !node.next &&
-    !node.hasTrailingSpaces &&
-    node.isTrailingSpaceSensitive &&
+    ((!node.hasTrailingSpaces &&
+    node.isTrailingSpaceSensitive) || i18nContent) &&
     isTextLikeNode(getLastDescendant(node))
   );
 }
@@ -208,7 +209,8 @@ function needsToBorrowParentOpeningTagEndMarker(node) {
    *       ><a
    *       ^
    */
-  return !node.prev && node.isLeadingSpaceSensitive && !node.hasLeadingSpaces;
+  const i18nContent = node.parent?.attrs && node.parent.attrs.some(a => a.name === "i18n");
+  return !node.prev && ((node.isLeadingSpaceSensitive && !node.hasLeadingSpaces) || i18nContent);
 }
 
 function printAttributes(path, options, print) {
