@@ -1,7 +1,3 @@
-"use strict";
-
-module.exports = generateSchema;
-
 function generateSchema(options) {
   return {
     $schema: "http://json-schema.org/draft-04/schema#",
@@ -84,19 +80,6 @@ function optionToSchema(option) {
   }
   if (option.array) {
     schema = wrapWithArraySchema(schema);
-
-    // #10274
-    if (option.name === "pluginSearchDirs") {
-      schema = {
-        oneOf: [
-          schema,
-          {
-            enum: [false],
-            description: "Disable plugin autoloading.",
-          },
-        ],
-      };
-    }
   }
   return {
     description: option.description,
@@ -129,3 +112,5 @@ function optionTypeToSchemaType(optionType) {
 function choiceToSchema(choice) {
   return { enum: [choice.value], description: choice.description };
 }
+
+export default generateSchema;

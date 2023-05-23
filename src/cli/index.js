@@ -1,34 +1,29 @@
-"use strict";
-
-const stringify = require("fast-json-stable-stringify");
-// eslint-disable-next-line no-restricted-modules
-const prettier = require("../index.js");
-const createLogger = require("./logger.js");
-const Context = require("./context.js");
-const { parseArgvWithoutPlugins } = require("./options/parse-cli-arguments.js");
-const { createDetailedUsage, createUsage } = require("./usage.js");
-const { formatStdin, formatFiles } = require("./format.js");
-const logFileInfoOrDie = require("./file-info.js");
-const logResolvedConfigPathOrDie = require("./find-config-path.js");
-const {
-  utils: { isNonEmptyArray },
-} = require("./prettier-internal.js");
-const { printToScreen } = require("./utils.js");
+import * as prettier from "../index.js";
+import createLogger from "./logger.js";
+import Context from "./context.js";
+import { parseArgvWithoutPlugins } from "./options/parse-cli-arguments.js";
+import { createDetailedUsage, createUsage } from "./usage.js";
+import { formatStdin, formatFiles } from "./format.js";
+import logFileInfoOrDie from "./file-info.js";
+import logResolvedConfigPathOrDie from "./find-config-path.js";
+import { printToScreen } from "./utils.js";
+import printSupportInfo from "./print-support-info.js";
 
 async function run(rawArguments) {
   // Create a default level logger, so we can log errors during `logLevel` parsing
   let logger = createLogger();
 
   try {
-    const logLevel = parseArgvWithoutPlugins(
+    const { logLevel } = parseArgvWithoutPlugins(
       rawArguments,
       logger,
-      "loglevel"
-    ).loglevel;
+      "log-level"
+    );
     if (logLevel !== logger.logLevel) {
       logger = createLogger(logLevel);
     }
     const context = new Context({ rawArguments, logger });
+    await context.init();
     if (logger.logLevel !== "debug" && context.performanceTestFlag) {
       context.logger = createLogger("debug");
     }
@@ -42,18 +37,6 @@ async function run(rawArguments) {
 
 async function main(context) {
   context.logger.debug(`normalized argv: ${JSON.stringify(context.argv)}`);
-
-  if (context.argv.pluginSearch === false) {
-    const rawPluginSearchDirs = context.argv.__raw["plugin-search-dir"];
-    if (
-      typeof rawPluginSearchDirs === "string" ||
-      isNonEmptyArray(rawPluginSearchDirs)
-    ) {
-      throw new Error(
-        "Cannot use --no-plugin-search and --plugin-search-dir together."
-      );
-    }
-  }
 
   if (context.argv.check && context.argv.listDifferent) {
     throw new Error("Cannot use --check and --list-different together.");
@@ -86,12 +69,7 @@ async function main(context) {
   }
 
   if (context.argv.supportInfo) {
-    printToScreen(
-      prettier.format(stringify(prettier.getSupportInfo()), {
-        parser: "json",
-      })
-    );
-    return;
+    return printSupportInfo();
   }
 
   const hasFilePatterns = context.filePatterns.length > 0;
@@ -116,6 +94,4 @@ async function main(context) {
   }
 }
 
-module.exports = {
-  run,
-};
+export { run };

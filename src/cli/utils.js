@@ -1,9 +1,8 @@
-"use strict";
-
-const { promises: fs } = require("fs");
-
-// eslint-disable-next-line no-restricted-modules
-const { default: sdbm } = require("../../vendors/sdbm.js");
+import fs from "node:fs/promises";
+import path from "node:path";
+import sdbm from "sdbm";
+// @ts-expect-error
+import { __internal as sharedWithCli } from "../index.js";
 
 // eslint-disable-next-line no-console
 const printToScreen = console.log.bind(console);
@@ -60,7 +59,23 @@ async function statSafe(filePath) {
   try {
     return await fs.stat(filePath);
   } catch (error) {
-    /* istanbul ignore next */
+    /* c8 ignore next 3 */
+    if (error.code !== "ENOENT") {
+      throw error;
+    }
+  }
+}
+
+/**
+ * Get stats of a given path without following symbolic links.
+ * @param {string} filePath The path to target file.
+ * @returns {Promise<import('fs').Stats | undefined>} The stats.
+ */
+async function lstatSafe(filePath) {
+  try {
+    return await fs.lstat(filePath);
+  } catch (error) {
+    /* c8 ignore next 3 */
     if (error.code !== "ENOENT") {
       throw error;
     }
@@ -80,4 +95,24 @@ function isJson(value) {
   }
 }
 
-module.exports = { printToScreen, groupBy, pick, createHash, statSafe, isJson };
+/**
+ * Replace `\` with `/` on Windows
+ * @param {string} filepath
+ * @returns {string}
+ */
+const normalizeToPosix =
+  path.sep === "\\"
+    ? (filepath) => filepath.replaceAll("\\", "/")
+    : (filepath) => filepath;
+
+export const { isNonEmptyArray, partition, omit } = sharedWithCli.utils;
+export {
+  printToScreen,
+  groupBy,
+  pick,
+  createHash,
+  statSafe,
+  lstatSafe,
+  isJson,
+  normalizeToPosix,
+};

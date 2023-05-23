@@ -1,12 +1,11 @@
-"use strict";
-
-const parseFrontMatter = require("../utils/front-matter/parse.js");
+import parseFrontMatter from "../utils/front-matter/parse.js";
 
 const pragmas = ["format", "prettier"];
 
 function startWithPragma(text) {
   const pragma = `@(${pragmas.join("|")})`;
   const regex = new RegExp(
+    // eslint-disable-next-line regexp/match-any -- possible bug
     [
       `<!--\\s*${pragma}\\s*-->`,
       `{\\s*\\/\\*\\s*${pragma}\\s*\\*\\/\\s*}`,
@@ -18,15 +17,15 @@ function startWithPragma(text) {
   return matched?.index === 0;
 }
 
-module.exports = {
-  startWithPragma,
-  hasPragma: (text) =>
-    startWithPragma(parseFrontMatter(text).content.trimStart()),
-  insertPragma: (text) => {
-    const extracted = parseFrontMatter(text);
-    const pragma = `<!-- @${pragmas[0]} -->`;
-    return extracted.frontMatter
-      ? `${extracted.frontMatter.raw}\n\n${pragma}\n\n${extracted.content}`
-      : `${pragma}\n\n${extracted.content}`;
-  },
+const hasPragma = (text) =>
+  startWithPragma(parseFrontMatter(text).content.trimStart());
+
+const insertPragma = (text) => {
+  const extracted = parseFrontMatter(text);
+  const pragma = `<!-- @${pragmas[0]} -->`;
+  return extracted.frontMatter
+    ? `${extracted.frontMatter.raw}\n\n${pragma}\n\n${extracted.content}`
+    : `${pragma}\n\n${extracted.content}`;
 };
+
+export { startWithPragma, hasPragma, insertPragma };

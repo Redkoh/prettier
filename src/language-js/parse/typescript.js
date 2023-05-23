@@ -1,19 +1,20 @@
-"use strict";
-
-const createError = require("../../common/parser-create-error.js");
-const tryCombinations = require("../../utils/try-combinations.js");
-const createParser = require("./utils/create-parser.js");
-const replaceHashbang = require("./utils/replace-hashbang.js");
-const postprocess = require("./postprocess/index.js");
+import { parseWithNodeMaps } from "@typescript-eslint/typescript-estree/dist/parser.js";
+import createError from "../../common/parser-create-error.js";
+import tryCombinations from "../../utils/try-combinations.js";
+import createParser from "./utils/create-parser.js";
+import replaceHashbang from "./utils/replace-hashbang.js";
+import postprocess from "./postprocess/index.js";
+import { throwErrorForInvalidNodes } from "./postprocess/typescript.js";
 
 /** @type {import("@typescript-eslint/typescript-estree").TSESTreeOptions} */
-const parseOptions = {
+const baseParseOptions = {
   // `jest@<=26.4.2` rely on `loc`
   // https://github.com/facebook/jest/issues/10444
+  // Set `loc` and `range` to `true` also prevent AST traverse
+  // https://github.com/typescript-eslint/typescript-eslint/blob/733b3598c17d3a712cf6f043115587f724dbe3ef/packages/typescript-estree/src/ast-converter.ts#L38
   loc: true,
   range: true,
   comment: true,
-  jsx: true,
   tokens: true,
   loggerFn: false,
   project: [],
@@ -22,36 +23,59 @@ const parseOptions = {
 function createParseError(error) {
   const { message, lineNumber, column } = error;
 
-  /* istanbul ignore next */
+  /* c8 ignore next 3 */
   if (typeof lineNumber !== "number") {
     return error;
   }
 
   return createError(message, {
-    start: { line: lineNumber, column: column + 1 },
+    loc: {
+      start: { line: lineNumber, column: column + 1 },
+    },
+    cause: error,
   });
 }
 
-function parse(text, parsers, options = {}) {
-  const textToParse = replaceHashbang(text);
-  const jsx = isProbablyJsx(text);
+// https://typescript-eslint.io/architecture/parser/#jsx
+const isKnownFileType = (filepath) =>
+  /\.(?:js|mjs|cjs|jsx|ts|mts|cts|tsx)$/i.test(filepath);
 
-  const { parseWithNodeMaps } = require("@typescript-eslint/typescript-estree");
-  const { result, error: firstError } = tryCombinations(
-    // Try passing with our best guess first.
-    () => parseWithNodeMaps(textToParse, { ...parseOptions, jsx }),
-    // But if we get it wrong, try the opposite.
-    () => parseWithNodeMaps(textToParse, { ...parseOptions, jsx: !jsx })
-  );
-
-  if (!result) {
-    // Suppose our guess is correct, throw the first error
-    throw createParseError(firstError);
+function getParseOptionsCombinations(text, options) {
+  const filepath = options?.filepath;
+  if (filepath && isKnownFileType(filepath)) {
+    return [{ ...baseParseOptions, filePath: filepath }];
   }
 
-  options.originalText = text;
-  options.tsParseResult = result;
-  return postprocess(result.ast, options);
+  const shouldEnableJsx = isProbablyJsx(text);
+  return [
+    { ...baseParseOptions, jsx: shouldEnableJsx },
+    { ...baseParseOptions, jsx: !shouldEnableJsx },
+  ];
+}
+
+function parse(text, options) {
+  const textToParse = replaceHashbang(text);
+  const parseOptionsCombinations = getParseOptionsCombinations(text, options);
+
+  let result;
+  try {
+    result = tryCombinations(
+      parseOptionsCombinations.map(
+        (parseOptions) => () => parseWithNodeMaps(textToParse, parseOptions)
+      )
+    );
+  } catch ({
+    errors: [
+      // Suppose our guess is correct, throw the first error
+      error,
+    ],
+  }) {
+    throw createParseError(error);
+  }
+
+  throwErrorForInvalidNodes(result, text);
+
+  return postprocess(result.ast, { parser: "typescript", text });
 }
 
 /**
@@ -59,6 +83,7 @@ function parse(text, parsers, options = {}) {
  */
 function isProbablyJsx(text) {
   return new RegExp(
+    // eslint-disable-next-line regexp/no-useless-non-capturing-group -- possible bug
     [
       "(?:^[^\"'`]*</)", // Contains "</" when probably not in a string
       "|",
@@ -68,9 +93,4 @@ function isProbablyJsx(text) {
   ).test(text);
 }
 
-// Export as a plugin so we can reuse the same bundle for UMD loading
-module.exports = {
-  parsers: {
-    typescript: createParser(parse),
-  },
-};
+export const typescript = createParser(parse);
